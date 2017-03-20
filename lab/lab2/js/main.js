@@ -63,6 +63,7 @@ Questions you should ask yourself:
   - What can I do with the output?
   - Can I get a lat/lng from the output?
 
+//search.mapzen.com
 
 Task 2: Use Mapzen's 'Mobility' API to generate a route based on your origin and destination
 
@@ -142,11 +143,14 @@ var updatePosition = function(lat, lng, updated) {
   goToOrigin(lat, lng);
 };
 
+var myPosition;
+
 $(document).ready(function() {
   /* This 'if' check allows us to safely ask for the user's current position */
   if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition(function(position) {
       updatePosition(position.coords.latitude, position.coords.longitude, position.timestamp);
+      myPosition = position
     });
   } else {
     alert("Unable to access geolocation API!");
@@ -165,11 +169,60 @@ $(document).ready(function() {
   });
 
   // click handler for the "calculate" button (probably you want to do something with this)
+
+
+
+
   $("#calculate").click(function(e) {
     var dest = $('#dest').val();
     console.log(dest);
+    var request = $.ajax('https://search.mapzen.com/v1/search?text=' +dest + '&api_key=mapzen-6h9t4s5');
+    request.done(function(data){
+      var dataArray = data.features[0].geometry.coordinates;
+      console.log(data.features[0].geometry);
+      var marker = L.marker(dataArray.reverse()).addTo(map);
+      console.log(dataArray.reverse());
+      console.log(marker);
+      var latlon = dataArray.reverse();
+      requestRouteToLatLon(latlon)
+    });
+
+//get lat lng
+//add coord to map using l.marker
+//stringify geojson
+//potentially reorder latlng?
+//then mobility api call, feed it marker coordinates
+//"locations":[{"lat":1,"lon":1},{"lat":2,"lon":2}],"costing":"auto","directions_options":{"units":"miles"}}&api_key=mapzen-6h9t4s5')
+
   });
 
 });
+var decodedData;
+var myRoute;
+var requestRouteToLatLon= function(latlon){
+  var myLocation= {"lat": myPosition.coords.latitude, "lon":myPosition.coords.longitude}
+  var destinationLocation={"lat":latlon[0], "lon":latlon[1]}
+  var myJson = {"locations": [myLocation, destinationLocation],"costing":"auto","directions_options":{"units":"miles"}}
+  var request2 = $.ajax('https://matrix.mapzen.com/optimized_route?json='+JSON.stringify(myJson)+'&api_key=mapzen-6h9t4s5');
+  request2.done(function(ajaxResponse){
+    console.log(ajaxResponse);
+    var decodedData = decode(ajaxResponse.trip.legs[0].shape);
+    console.log(decode(ajaxResponse.trip.legs[0].shape));
+    console.log("building polyline")
+    var myRoute = L.polyline(decodedData, {color: 'tomato'}).addTo(map);
+  });
+
+};
 
 
+
+// requestRouteToLatLon([35,-75]);
+
+//stringify the api
+//store latlong
+//use turf to give you the line?
+
+//https://matrix.mapzen.com/optimized_route?json={"locations":[{"lat":],"costing":"auto","directions_options":{"units":"miles"}}&api_key=mapzen-6h9t4s5
+//'{"locations":[{"lat":40.042072,"lon":-76.306572},{"lat":39.992115,"lon":-76.781559}]
+//optimized route seems to work with 2 points
+//https://matrix.mapzen.com/optimized_route?json={"locations":[{"lat":40.042072,"lon":-76.306572},{"lat":39.992115,"lon":-76.781559}],"costing":"auto","directions_options":{"units":"miles"}}&api_key=mapzen-6h9t4s5
